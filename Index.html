@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REDomizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        .button {
+            background: #ff0000;
+            color: white;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            position: fixed;
+            bottom: 20px;
+            width: 80%;
+            max-width: 300px;
+            z-index: 10;
+            text-align: center;
+            transition: background 0.2s;
+            overflow: hidden;
+        }
+        .button:hover {
+            background: #cc0000;
+        }
+        .button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .image-container {
+            width: 100%;
+            height: calc(100vh - 120px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            overflow: hidden;
+        }
+        .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 15px;
+            opacity: 0; /* Изначально картинка скрыта */
+            transition: opacity 0.5s ease-in-out; /* Плавное появление */
+        }
+        .image-container img.loaded {
+            opacity: 1; /* После загрузки картинка становится видимой */
+        }
+    </style>
+</head>
+<body>
+    <div class="image-container" id="imageContainer">
+        <img id="randomImage" src="" alt="">
+    </div>
+
+    <button class="button" id="loadButton" onclick="fetchRandomImage()">ПОИСК</button>
+
+    <script>
+        let displayedImages = [];
+
+        async function fetchRandomImage(attempt = 0) {
+            let button = document.getElementById("loadButton");
+            button.disabled = true; // Отключаем кнопку
+            document.getElementById("imageContainer").style.display = "none"; // Скрываем контейнер с изображением
+
+            try {
+                let subreddits = [
+                    "nsfw", "porn", "lesbians", "gonewild", "ass", "boobs", "RealGirls", "Amateur", "milf", "flashing", "lesbian_gifs", "nsfw_gif"
+                ];
+
+                let subreddit = subreddits[Math.floor(Math.random() * subreddits.length)];
+                let response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=100`);
+                let data = await response.json();
+
+                if (data.data && data.data.children.length > 0) {
+                    let posts = data.data.children.filter(post => post.data.url.match(/\.(jpg|jpeg|png|gif)$/));
+
+                    posts = posts.filter(post => !displayedImages.includes(post.data.url));
+
+                    if (posts.length > 0) {
+                        let randomPost = posts[Math.floor(Math.random() * posts.length)];
+                        let imageUrl = randomPost.data.url;
+
+                        displayedImages.push(imageUrl);
+
+                        if (displayedImages.length > 50) {
+                            displayedImages = [];
+                        }
+
+                        let imgElement = document.getElementById("randomImage");
+                        imgElement.src = imageUrl;
+
+                        imgElement.onload = () => {
+                            document.getElementById("imageContainer").style.display = "flex";
+                            button.disabled = false; // Включаем кнопку
+                            imgElement.classList.add('loaded');
+                        };
+
+                        imgElement.onerror = () => {
+                            console.warn("Ошибка загрузки изображения, пробую снова...");
+                            fetchRandomImage(attempt + 1); // Пробуем загрузить другое изображение
+                        };
+                    } else {
+                        console.warn("Не найдено подходящих картинок, пробуем снова...");
+                        fetchRandomImage(attempt + 1); // Повторный запрос, если картинок не осталось
+                    }
+                } else {
+                    console.warn("Субреддит пуст, пробуем снова...");
+                    fetchRandomImage(attempt + 1); // Повторный запрос при пустом ответе
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки изображения:", error);
+                if (attempt < 5) {
+                    console.warn("Попытка №" + (attempt + 1));
+                    fetchRandomImage(attempt + 1); // Пробуем снова (до 5 раз)
+                } else {
+                    alert("Не удалось загрузить изображение, попробуйте позже.");
+                    button.disabled = false; // Включаем кнопку
+                }
+            }
+        }
+    </script>
+</body>
+</html>
